@@ -53,7 +53,7 @@ def _binary_target(values: pd.Series, target_name: str) -> pd.Series:
     }
     negative_labels = {
         "0", "no", "false", "negative", "none", "clear", "absent",
-        "no thunderstorm", "non-thunderstorm",
+        "no storm", "no-storm", "no thunderstorm", "non-thunderstorm",
     }
     normalized = present.astype(str).str.strip().str.lower()
     unique_labels = set(normalized.unique())
@@ -75,6 +75,7 @@ def train_and_evaluate(
     frame: pd.DataFrame,
     target_column: str,
     model_name: str = "Random Forest",
+    time_aware: bool = False,
 ) -> TrainingResult:
     """Tune a classifier on a training split and evaluate it on held-out rows."""
     if target_column not in frame.columns:
@@ -88,6 +89,13 @@ def train_and_evaluate(
     target = target.loc[target.notna()].astype(int)
     if labeled.empty:
         raise ValueError("No rows remain after removing rows with missing targets.")
+
+    if time_aware:
+        if "timestamp" not in labeled.columns:
+            raise ValueError("Time-aware evaluation requires a 'timestamp' column.")
+        order = labeled["timestamp"].sort_values(kind="stable").index
+        labeled = labeled.loc[order]
+        target = target.loc[order]
 
     features = labeled.drop(columns=[target_column, "timestamp"], errors="ignore")
     features = features.loc[:, features.notna().any()]
@@ -135,13 +143,24 @@ def train_and_evaluate(
     pipeline = Pipeline(
         [("preprocessing", preprocessing), ("classifier", classifier)]
     )
-    X_train, X_test, y_train, y_test = train_test_split(
-        features,
-        target,
-        test_size=0.2,
-        random_state=42,
-        stratify=target,
-    )
+    if time_aware:
+        split_at = int(len(features) * 0.8)
+        X_train, X_test = features.iloc[:split_at], features.iloc[split_at:]
+        y_train, y_test = target.iloc[:split_at], target.iloc[split_at:]
+        train_class_counts = y_train.value_counts()
+        if len(train_class_counts) != 2 or train_class_counts.min() < 2:
+            raise ValueError(
+                "The historical training period needs at least 2 examples of each "
+                "target class before the holdout period."
+            )
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(
+            features,
+            target,
+            test_size=0.2,
+            random_state=42,
+            stratify=target,
+        )
     folds = min(3, int(y_train.value_counts().min()))
     search = GridSearchCV(
         pipeline,

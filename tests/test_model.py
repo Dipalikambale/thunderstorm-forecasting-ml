@@ -7,7 +7,7 @@ from thunderstorm_forecasting.modeling import train_and_evaluate
 
 def test_random_forest_training_returns_holdout_metrics():
     frame = merge_weather_frames(list(generate_demo_sources(rows=180)))
-    result = train_and_evaluate(frame, "thunderstorm")
+    result = train_and_evaluate(frame, "thunderstorm", time_aware=True)
 
     assert result.train_rows + result.test_rows == len(frame)
     assert {"accuracy", "precision", "recall", "f1", "roc_auc"} <= result.metrics.keys()

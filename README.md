@@ -38,6 +38,22 @@ The app opens with synthetic demo data so you can try the full workflow without 
 
 Select a binary target column containing `0`/`1`, `yes`/`no`, or recognized thunderstorm/event labels. Numeric and categorical weather features are imputed and transformed as part of the model pipeline. Rows without a valid timestamp are excluded; rows without a target are excluded during training.
 
+## Live forecasts and historical training
+
+Choose **Live forecasts + historical training** in the sidebar, upload an hourly historical CSV with **observed thunderstorm labels**, select an Indian city (or enter custom Indian coordinates), and click **Fetch data, train, and compare forecasts**. The city list includes Pune, Mumbai, Delhi, Bengaluru, Chennai, Kolkata, Hyderabad, Ahmedabad, Jaipur, Kochi, and Guwahati. The required CSV columns are:
+
+```text
+timestamp,temperature_c,humidity_pct,precipitation_mm,pressure_hpa,wind_speed_kmh,thunderstorm
+```
+
+The five feature columns must be numeric and use the units shown in their names. `timestamp` can also be named `datetime`, `date_time`, `valid_time`, or `date`. The target can be named `thunderstorm` or another column selected in the app, with values encoded as `0`/`1`, `yes`/`no`, or recognized storm/no-storm labels. Use labels from actual observations; do not create them from one of the input weather fields.
+
+The selected period must include both target classes, with at least three labeled rows per class for the train/test split. A CSV containing only rain labels or a dataset without timestamps and the five required features is not suitable for thunderstorm training.
+
+The app trains and evaluates the model using the earlier 80% of the uploaded time series and holds out the later 20%. It then fetches weather forecasts for the selected Indian location from both the [Open-Meteo Forecast API](https://open-meteo.com/en/docs) and [MET Norway Locationforecast](https://api.met.no/weatherapi/locationforecast/2.0/documentation), normalizes the weather variables, and displays the trained model's estimate for each provider's forecast periods. These providers supply global weather-model forecasts; they are not official IMD station data. Check the [India Meteorological Department](https://mausam.imd.gov.in/) for official Indian weather warnings. The live mode requires a separately labeled historical dataset because the forecast APIs do not provide reliable observed thunderstorm training labels for every Indian location.
+
+This mode needs an internet connection. The model output is an experimental estimate—not an official alert, calibrated probability, or validated operational forecast. Verify hazardous-weather conditions with your local meteorological authority. Forecast providers can differ, and some MET Norway forecast fields may be unavailable and imputed by the model.
+
 ## MLflow tracking
 
 Enable **Log this run to MLflow** in the app to record parameters, evaluation metrics, and the fitted scikit-learn pipeline. By default, MLflow writes to the local `mlruns` directory. To use a persistent or remote tracking server, set `MLFLOW_TRACKING_URI` before launching the app, for example:
